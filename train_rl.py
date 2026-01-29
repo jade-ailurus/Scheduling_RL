@@ -6,6 +6,8 @@ Usage:
 """
 
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # Fix OpenMP conflict with PyTorch
+
 import argparse
 import simpy
 import pandas as pd
