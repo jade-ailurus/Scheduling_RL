@@ -86,6 +86,10 @@ def run_episode(episode_num: int, df_flights: pd.DataFrame, t_last_arrival: floa
     # Get RL agent
     agent = get_charging_agent()
 
+    # Track previous state/action for each unit (for experience replay)
+    unit_history = {}  # {unit_id: {'state': ..., 'action': ...}}
+    collected_transitions = []  # Store all transitions for batch training
+
     # Schedule flights
     for _, row in df_flights.iterrows():
         name = f"FL{row.name:03d}"
@@ -109,26 +113,37 @@ def run_episode(episode_num: int, df_flights: pd.DataFrame, t_last_arrival: floa
                         snapshot = decision['snapshot']
                         state_vec = decision['state_vector']
                         unit_id = decision['unit_id']
+                        unit = decision['unit']
                         action_event = decision['action_event']
 
                         # Get action from RL agent
                         action = agent.select_action(snapshot, unit_id)
 
                         # Store experience for training
-                        if train_mode and hasattr(decision, 'prev_state'):
-                            next_state_vec = state_vec
-                            reward = fleet._calc_charge_reward(
-                                decision['prev_state'],
-                                decision['prev_action'],
-                                next_state_vec
-                            )
-                            agent.store_transition(
-                                decision['prev_state'],
-                                decision['prev_action'],
-                                reward,
-                                next_state_vec,
-                                False
-                            )
+                        if train_mode:
+                            # If we have previous state for this unit, create transition
+                            if unit_id in unit_history:
+                                prev = unit_history[unit_id]
+                                prev_state = prev['state']
+                                prev_action = prev['action']
+
+                                # Calculate reward based on what happened
+                                reward = fleet._calc_charge_reward(prev_state, prev_action, state_vec)
+
+                                # Store transition
+                                collected_transitions.append((
+                                    prev_state,
+                                    prev_action,
+                                    reward,
+                                    state_vec,
+                                    False  # not done
+                                ))
+
+                            # Save current state/action for next transition
+                            unit_history[unit_id] = {
+                                'state': state_vec.copy(),
+                                'action': action
+                            }
 
                         # Trigger the action
                         action_event.succeed(action)
@@ -137,13 +152,21 @@ def run_episode(episode_num: int, df_flights: pd.DataFrame, t_last_arrival: floa
     env.run(until=sim_duration)
 
     # Train agent after episode
-    if train_mode:
-        for _ in range(10):  # Multiple training steps
+    if train_mode and collected_transitions:
+        # Store all collected transitions
+        for transition in collected_transitions:
+            agent.store_transition(*transition)
+
+        # Train multiple times
+        num_trains = max(10, len(collected_transitions) // 4)
+        for _ in range(num_trains):
             agent.train()
 
         # Update target network periodically
-        if episode_num % 10 == 0:
+        if episode_num % 5 == 0:
             agent.update_target_network()
+
+        print(f"  [Train] {len(collected_transitions)} transitions, buffer={len(agent.replay_buffer)}", end="")
 
     # Collect metrics
     metrics = {
@@ -266,10 +289,10 @@ def main():
         )
         history.append(metrics)
 
-        print(f"Turnaround: {metrics['avg_turnaround']:.1f}min, "
+        print(f" | Turnaround: {metrics['avg_turnaround']:.1f}min, "
               f"Delays: {metrics['delayed_flights']}/{metrics['total_delays']} "
               f"({metrics['delay_rate']*100:.1f}%), "
-              f"Epsilon: {metrics['epsilon']:.3f}")
+              f"Eps: {metrics['epsilon']:.3f}")
 
         # Track best model
         if metrics['delay_rate'] < best_delay_rate:
