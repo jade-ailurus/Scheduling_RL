@@ -319,11 +319,10 @@ def log_snapshot_details(t_now, amr_states, charger_queues, fleets):
 # ==============================================================================
 
 def update_state(env, trigger_event: str, kpi, fleets: dict):
-    """ Captures a global snapshot, logs details, and plots map."""
+    """ Captures a global snapshot, logs details, and plots map.
 
-    if not cfg.ENABLE_SNAPSHOT_LOGGING and not cfg.ENABLE_SNAPSHOT_PLOTTING:
-        return
-    
+    Always returns a snapshot dict for RL usage, even if logging is disabled.
+    """
     t_now = env.now
 
     amr_states = []
@@ -369,9 +368,32 @@ def update_state(env, trigger_event: str, kpi, fleets: dict):
     # Return snapshot for RL usage
     return snapshot
     
-def _setup_output_dir():
-    """Creates the output directory."""
-    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+def _setup_output_dir(method_name=None):
+    """Creates the output directory with timestamp and method name.
+
+    Args:
+        method_name: Optional method name (e.g., 'FIFO', 'RL_ep10').
+                     If None, uses cfg.DISPATCHING_RULE.
+
+    Returns:
+        str: Path to the created output directory
+    """
+    from datetime import datetime
+
+    if method_name is None:
+        if cfg.USE_RL_CHARGING:
+            method_name = f"RL_{cfg.DISPATCHING_RULE}"
+        else:
+            method_name = cfg.DISPATCHING_RULE
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dir_name = f"{timestamp}_{method_name}"
+    output_path = os.path.join(cfg.OUTPUT_BASE_DIR, dir_name)
+
+    os.makedirs(output_path, exist_ok=True)
+    cfg.OUTPUT_DIR = output_path
+
+    return output_path
 
 def _export_logs(kpi, fleets: dict, sim_duration: float):
     """Exports raw event logs and KPI summaries to CSV."""

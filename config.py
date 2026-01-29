@@ -14,7 +14,8 @@ ENABLE_SNAPSHOT_PLOTTING = False
 RND_SEED = 42
 random.seed(RND_SEED)
 ARRIVAL_CSV = 'Data/x-SFO-y_gate.csv'
-OUTPUT_DIR = "Results_TH"
+OUTPUT_BASE_DIR = "Results_TH"
+OUTPUT_DIR = None  # Will be set dynamically by _setup_output_dir()
 
 # ===== 2. SIMULATION TIME & RULES =====
 NUM_FLIGHTS = 74

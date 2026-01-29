@@ -43,7 +43,8 @@ print(f"Fleet Size (Total): {cfg.TOTAL_AMR_FLEET_SIZE}")
 print(f"Target Turnaround: {cfg.TARGET_TURNAROUND_MINUTES} min")
 print(f"{'=' * 60}\n")
 
-_setup_output_dir()
+output_dir = _setup_output_dir()
+print(f"[INFO] Results will be saved to: {output_dir}")
 # 1. 데이터 로드
 df_flights, t_last_arrival = parse_arrivals(cfg.ARRIVAL_CSV, cfg.NUM_FLIGHTS)
 # 2. 환경 및 KPI 초기화
