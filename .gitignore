@@ -1,1 +1,28 @@
-.ipynb_checkpoints/
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Results (generated output)
+Results_TH/
+
+# Checkpoints
+checkpoints/
+
+# Temp files
+_run_test.bat
+*.tmp
+
+# W&B
+wandb/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
